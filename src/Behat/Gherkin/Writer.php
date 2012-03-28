@@ -36,7 +36,7 @@ class Writer
      * @param \Behat\Gherkin\Keywords\ArrayKeywords $keywords 
      * @param string $indent 
      */
-    public function __construct(\Behat\Gherkin\Keywords\ArrayKeywords $keywords, $indent = ' ') {
+    public function __construct(\Behat\Gherkin\Keywords\ArrayKeywords $keywords, $indent = '  ') {
         $this->keywords = $keywords;
         $this->indent = $indent;
     }
@@ -66,7 +66,7 @@ class Writer
         // Steps
         foreach ($background->getSteps() as $step) {
             $content .=
-                    PHP_EOL . $this->writeIndent(2)
+                    PHP_EOL . $this->writeIndent(1)
                     . $this->writeStep($step);
         }
 
@@ -96,7 +96,8 @@ class Writer
         //
         // Feature's infos
         $content = ''
-                . $this->writeTags($feature->getTags(), 0)
+                . $this->writeLanguage($language)
+                . ($feature->getTags() ? PHP_EOL.$this->writeTags($feature->getTags(), 0) : '')
                 . PHP_EOL . $this->writeKeyword($this->keywords->getFeatureKeywords(), $feature->getTitle(), 0)
                 . PHP_EOL . $this->writeText($feature->getDescription(), 1);
 
@@ -110,7 +111,7 @@ class Writer
         // scenarios
         $scenarios = $feature->getScenarios();
         foreach ($scenarios as $scenario) {
-            $content .= PHP_EOL . PHP_EOL . $this->writeScenario($scenario);
+            $content .= PHP_EOL . $this->writeScenario($scenario);
         }
         return $content;
     }
@@ -127,7 +128,9 @@ class Writer
         if (preg_match('!(^.*)\|!', $keyword, $matches)) {
             $keyword = $matches[1];
         }
-        return $this->writeIndent($indent) . $keyword . ': ' . ltrim($this->writetext($text, $indent + 1));
+        return $this->writeIndent($indent) . $keyword . ':' 
+                . ((strlen($text) > 0) ? ' ' .ltrim($this->writeText($text, $indent + 1)) : '')
+            ;
     }
 
     /**
@@ -137,13 +140,13 @@ class Writer
      * @return string
      */
     public function writeScenario(ScenarioNode $scenario) {
-        $keyWordToUse = $scenario instanceof \Behat\Gherkin\Node\OutlineNode ? $this->keywords->getOutlineKeywords() : $this->keywords->getScenarioKeywords();
+        $keyWordToUse = $scenario instanceof OutlineNode ? $this->keywords->getOutlineKeywords() : $this->keywords->getScenarioKeywords();
 
         //
         // Main content
         $content = ''
-                . $this->writeTags($scenario->getTags(), 1)
-                . PHP_EOL . $this->writeKeyword($this->keywords->getScenarioKeywords(), $scenario->getTitle(), 1)
+                . (sizeof($scenario->getTags()) > 0 ? PHP_EOL . $this->writeTags($scenario->getTags(), 1) : '')
+                . PHP_EOL . $this->writeKeyword($keyWordToUse, $scenario->getTitle(), 1)
         ;
 
         //
@@ -156,7 +159,7 @@ class Writer
 
         //
         // Examples
-        if ($scenario instanceof \Behat\Gherkin\Node\OutlineNode) {
+        if ($scenario instanceof OutlineNode) {
             $content .= ''
                     . PHP_EOL . PHP_EOL . $this->writeKeyword($this->keywords->getExamplesKeywords(), '', 1)
             ;
@@ -198,6 +201,7 @@ class Writer
      * 
      * @param \Behat\Gherkin\Node\StepNode $step
      * @return string
+     * @throws \Behat\Gherkin\Exception\Exception
      * 
      * @todo steps with outline arguments
      */
@@ -218,10 +222,12 @@ class Writer
             case 'And':
                 $kw = $this->keywords->getAndKeywords();
                 break;
+            default:
+                throw new \Behat\Gherkin\Exception\Exception("invalid type given : " . $step->getType());
         }
 
         // todo : steps with outline arguments
-        return $this->writeKeyword($kw, $step->getText());
+        return $this->writeText($kw . ' ' . $step->getText());
     }
 
     /**
@@ -249,7 +255,19 @@ class Writer
         if (empty($array)) {
             return '';
         }
-        return $this->writeIndent($indent) . '@' . implode(' @', $array);
+        return $this->writeIndent($indent) . '@' . ltrim(implode(' @', $array));
+    }
+    
+    /**
+     * Write language tag
+     * 
+     * @param string $language
+     * @return string 
+     */
+    public function writeLanguage($language) {
+        return $this->writeComment(
+            $this->writeKeyword('language', $language)
+        );
     }
 
 }
